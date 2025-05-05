@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 // Conexión a MongoDB
-mongoose.connect('mongodb+srv://alejandro23dev:<db_password>@ridehub.w3lqmhg.mongodb.net/?retryWrites=true&w=majority&appName=ridehub', {
+mongoose.connect('mongodb+srv://alejandro23dev:<yBt1JUy2duhczW7P>@ridehub.w3lqmhg.mongodb.net/?retryWrites=true&w=majority&appName=ridehub', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
