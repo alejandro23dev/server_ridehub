@@ -10,15 +10,15 @@ app.use(express.json());
 
 // Conexión a MongoDB
 mongoose.connect('mongodb+srv://alejandro23dev:<yBt1JUy2duhczW7P>@ridehub.w3lqmhg.mongodb.net/?retryWrites=true&w=majority&appName=ridehub', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
+	useNewUrlParser: true,
+	useUnifiedTopology: true
 });
 
 // Modelo de ejemplo
 const Item = mongoose.model('Item', {
-  name: String,
-  description: String,
-  createdAt: { type: Date, default: Date.now }
+	name: String,
+	description: String,
+	createdAt: { type: Date, default: Date.now }
 });
 
 // Crear servidor HTTP
@@ -27,44 +27,81 @@ const PORT = process.env.PORT || 3000;
 
 // Configurar Socket.io
 const io = new Server(httpServer, {
-  cors: {
-    origin: "*", // En producción, reemplaza con tu dominio de la app Expo
-    methods: ["GET", "POST"]
-  }
+	cors: {
+		origin: "*", // En producción, reemplaza con tu dominio de la app Expo
+		methods: ["GET", "POST"]
+	}
 });
 
 // Conexiones Socket.io
 io.on('connection', (socket) => {
-  console.log('Cliente conectado:', socket.id);
+	console.log('Cliente conectado:', socket.id);
 
-  socket.on('disconnect', () => {
-    console.log('Cliente desconectado:', socket.id);
-  });
-
-  // Puedes agregar más eventos personalizados aquí
-  socket.on('join_room', (room) => {
-    socket.join(room);
-    console.log(`Cliente ${socket.id} se unió a la sala ${room}`);
-  });
+	socket.on('disconnect', () => {
+		console.log('Cliente desconectado:', socket.id);
+	});
 });
 
-// Rutas de la API
-app.get('/items', async (req, res) => {
-  const items = await Item.find().sort({ createdAt: -1 });
-  res.json(items);
-});
+// Ruta de autenticación
+app.post('/auth/login', async (req, res) => {
+	const { email, password } = req.body;
 
-app.post('/items', async (req, res) => {
-  const newItem = new Item(req.body);
-  await newItem.save();
-  
-  // Emitir evento a todos los clientes conectados
-  io.emit('new_item', newItem);
-  
-  res.status(201).json(newItem);
+	// Validación básica
+	if (!email || !password) {
+		return res.status(400).json({
+			success: false,
+			message: 'Email y contraseña son requeridos'
+		});
+	}
+
+	try {
+		// Buscar usuario por email
+		const user = await User.findOne({
+			$or: [
+				{ email: email },
+				{ username: email } // Permite login con username también
+			]
+		});
+
+		if (!user) {
+			return res.status(401).json({
+				success: false,
+				message: 'Credenciales inválidas'
+			});
+		}
+
+		// Comparar contraseñas (sin encriptar por ahora - ¡más abajo te explico cómo mejorarlo!)
+		if (user.password !== password) {
+			return res.status(401).json({
+				success: false,
+				message: 'Credenciales inválidas'
+			});
+		}
+
+		// Si todo es correcto, devolver datos básicos del usuario (sin password)
+		const userData = {
+			id: user._id,
+			username: user.username,
+			email: user.email,
+			createdAt: user.createdAt
+		};
+
+		res.json({
+			success: true,
+			user: userData,
+			message: 'Autenticación exitosa'
+		});
+
+	} catch (error) {
+		console.error('Error en login:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Error en el servidor'
+		});
+	}
 });
 
 // Iniciar servidor
 httpServer.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+	console.log(`Servidor corriendo en puerto ${PORT}`);
 });
