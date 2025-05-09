@@ -31,6 +31,58 @@ app.get('/connectToApi', (req, res) => {
 	}
 });
 
+app.get('/getPublications', async (req, res) => {
+	try {
+		// Consulta con JOIN para obtener datos del usuario
+		const [publications] = await pool.query(`
+      SELECT 
+        p.id,
+        p.title,
+        p.date,
+        p.adjunt,
+        p.likes,
+        p.comments,
+        p.shares,
+        u.name,
+		u.last_name
+      FROM publications p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.deleted = 0
+      ORDER BY p.date DESC
+    `);
+
+		// Formatear cada publicación
+		const formattedPublications = publications.map(pub => ({
+			id: pub.id,
+			user: {
+				name: pub.name + ' ' + pub.last_name,
+				avatar: ""
+			},
+			created: pub.date,
+			content: pub.title,
+			adjunt: pub.adjunt || null,
+			likes: pub.likes || 0,
+			comments: pub.comments || 0,
+			shares: pub.shares || 0,
+			isLiked: Boolean(false)
+		}));
+
+		res.status(200).json({
+			error: 0,
+			publications: formattedPublications
+		});
+
+	} catch (err) {
+		console.error('Error en /getPublications:', err);
+
+		res.status(500).json({
+			error: 500,
+			msg: "Error al obtener publicaciones",
+			details: process.env.NODE_ENV === 'development' ? err.message : undefined
+		});
+	}
+});
+
 // app.get("/", async (req, res) => {
 //     const { data, error } = await resend.emails.send({
 //         from: "Acme <onboarding@resend.dev>",
