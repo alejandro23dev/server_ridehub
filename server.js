@@ -31,25 +31,85 @@ app.get('/connectToApi', (req, res) => {
 	}
 });
 
+app.get('/getUserProfile', async (req, res) => {
+	try {
+		const { userID } = req.query;
+
+		// Obtener datos básicos del usuario
+		const [userResult] = await pool.query(`
+            SELECT 
+                u.id,
+                u.name,
+                u.last_name,
+                u.username,
+                u.bio
+            FROM users u
+            WHERE u.id = ?`, [userID]);
+
+		if (userResult.length === 0) {
+			return res.status(404).json({
+				error: 404,
+				msg: "Usuario no encontrado"
+			});
+		}
+
+		const user = userResult[0];
+
+		const formattedUserData = {
+			name: [user.name, user.last_name].filter(Boolean).join(' '),
+			username: user.username,
+			bio: user.bio || "Estoy usando Ridehub",
+			posts: 0,
+			followers: 0,
+			following: 0
+		};
+
+		res.status(200).json({
+			error: 0,
+			userData: formattedUserData // Ahora es un objeto, no un array
+		});
+
+	} catch (err) {
+		console.error('Error en /getUserProfile:', err);
+		res.status(500).json({
+			error: 500,
+			msg: "Error al obtener el perfil del usuario",
+			details: process.env.NODE_ENV === 'development' ? err.message : undefined
+		});
+	}
+});
+
 app.get('/getPublications', async (req, res) => {
 	try {
-		// Consulta con JOIN para obtener datos del usuario
-		const [publications] = await pool.query(`
-      SELECT 
-        p.id,
-        p.title,
-        p.date,
-        p.adjunt,
-        p.likes,
-        p.comments,
-        p.shares,
-        u.name,
-		u.last_name
-      FROM publications p
-      JOIN users u ON p.user_id = u.id
-      WHERE p.deleted = 0
-      ORDER BY p.date DESC
-    `);
+		const { userID } = req.query;
+
+		let query = `
+            SELECT 
+                p.id,
+                p.title,
+                p.date,
+                p.adjunt,
+                p.likes,
+                p.comments,
+                p.shares,
+                u.name,
+                u.last_name
+            FROM publications p
+            JOIN users u ON p.user_id = u.id
+            WHERE p.deleted = 0
+        `;
+
+		// Si hay userID, añadir filtro
+		if (userID) {
+			query += ` AND p.user_id = ?`;
+		}
+
+		query += ` ORDER BY p.date DESC`;
+
+		// Ejecutar consulta con o sin parámetro
+		const [publications] = userID
+			? await pool.query(query, [userID])
+			: await pool.query(query);
 
 		// Formatear cada publicación
 		const formattedPublications = publications.map(pub => ({
